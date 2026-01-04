@@ -5,7 +5,7 @@ def ask_robot_llm(user_input: str):
 You are a robot command interpreter.
 
 Your task:
-- Understand natural language commands.
+- Understand natural la nguage commands.
 - Ignore polite words, filler words, insults, and irrelevant text.
 - Detect ONLY the robot movement intent.
 

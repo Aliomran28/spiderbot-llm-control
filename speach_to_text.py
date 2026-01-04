@@ -1,57 +1,42 @@
-import serial
-import time
 import speech_recognition as sr
+import sounddevice as sd
 
-# ================= SERIAL =================
-PORT = "COM5"
-BAUD = 115200
+def listen_forever():
+    recognizer = sr.Recognizer()
 
-ser = serial.Serial(PORT, BAUD, timeout=1)
-time.sleep(2)
-print("✅ ESP32 verbunden")
+    fs = 16000          # Abtastrate
+    duration = 5        # Aufnahme pro Durchlauf (Sekunden)
 
-# ================= SPEECH =================
-recognizer = sr.Recognizer()
-mic = sr.Microphone()
+    print("🎤 Sprachsteuerung gestartet.")
+    print("👉 Sprich einen Befehl (z. B. 'forward', 'right').")
+    print("👉 Sage 'stop' oder 'aufhören', um zu beenden.\n")
 
-# ================= COMMAND MAPPING =================
-def map_command(text: str):
-    text = text.lower()
+    while True:
+        print("🎙️ Aufnahme läuft...")
+        audio = sd.rec(int(duration * fs), samplerate=fs, channels=1, dtype='int16')
+        sd.wait()
 
-    if "forward" in text or "move" in text or "go" in text:
-        return b"F"
-    if "back" in text or "backward" in text:
-        return b"B"
-    if "left" in text:
-        return b"L"
-    if "right" in text:
-        return b"R"
-    if "stop" in text:
-        return b"S"
+        audio_data = sr.AudioData(audio.tobytes(), fs, 2)
 
-    return None
+        try:
+            text = recognizer.recognize_google(audio_data, language="en-US")
+            text = text.lower().strip()
+            print("🗣️ Erkannt:", text)
 
-print("🎤 Sag: forward / back / left / right / stop")
+            # 🛑 Stopp-Bedingung
+            if text in ["stop", "aufhören", "exit", "quit"]:
+                print("🛑 Sprachsteuerung beendet.")
+                break
 
-# ================= MAIN LOOP =================
-while True:
-    with mic as source:
-        recognizer.adjust_for_ambient_noise(source)
-        print("🎧 Höre zu...")
-        audio = recognizer.listen(source)
+            # 👉 Hier später an LLM weiterleiten
+            # z.B.: command = ask_robot_llm(text)
 
-    try:
-        text = recognizer.recognize_google(audio, language="en-US")
-        print("🗣️ Gesagt:", text)
+        except sr.UnknownValueError:
+            print("⚠️ Sprache nicht verstanden.")
+        except sr.RequestError as e:
+            print("❌ Fehler beim Speech-Service:", e)
 
-        cmd = map_command(text)
-        if cmd:
-            ser.write(cmd)
-            print("➡️ Gesendet:", cmd)
-        else:
-            print("⚠️ Kein gültiger Befehl erkannt")
+        print("-" * 40)
 
-    except sr.UnknownValueError:
-        print("❌ Sprache nicht verstanden")
-    except sr.RequestError as e:
-        print("❌ Speech API Fehler:", e)
+if __name__ == "__main__":
+    listen_forever()

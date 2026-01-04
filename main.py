@@ -1,38 +1,38 @@
-import json
-import serial
-import time
-from robot_llm import ask_robot_llm
+import speech_recognition as sr
 
-ser = serial.Serial("COM5", 115200, timeout=1)
-time.sleep(2)
+recognizer = sr.Recognizer()
 
-while True:
-    user_text = input(">> ")
-    response = ask_robot_llm(user_text)
-    print("LLM:", response)
+# Robotik-optimierte Parameter
+recognizer.energy_threshold = 300
+recognizer.pause_threshold = 1.5
+recognizer.phrase_threshold = 0.3
+recognizer.non_speaking_duration = 0.8
 
-    try:
-        data = json.loads(response)
-    except json.JSONDecodeError:
-        print("⛔ Invalid JSON")
-        continue
+print("🎤 Sprachsteuerung bereit")
 
-    cmd = data.get("cmd", "INVALID").strip().upper()
+with sr.Microphone(sample_rate=16000) as source:
+    print("🔇 Kalibriere Umgebungsgeräusche (NICHT sprechen!)")
+    recognizer.adjust_for_ambient_noise(source, duration=1.5)
+    print(f"✅ Energy Threshold: {recognizer.energy_threshold}")
 
-    if cmd == "FORWARD":
-        ser.write(b'F')
-        print("✅ FORWARD sent")
-    elif cmd == "BACKWARD":
-        ser.write(b'B')
-        print("✅ BACKWARD sent")
-    elif cmd == "LEFT":
-        ser.write(b'L')
-        print("✅ LEFT sent")
-    elif cmd == "RIGHT":
-        ser.write(b'R')
-        print("✅ RIGHT sent")
-    elif cmd == "STOP":
-        ser.write(b'S')
-        print("✅ STOP sent")
-    else:
-        print("⛔ Befehl ignoriert")
+    while True:
+        try:
+            print("🎙️ Sprich jetzt...")
+            audio = recognizer.listen(
+                source,
+                timeout=7,
+                phrase_time_limit=8
+            )
+
+            text = recognizer.recognize_google(audio, language="en-US")
+            text = text.lower().strip()
+            print("🗣️ Erkannt:", text)
+
+        except sr.WaitTimeoutError:
+            print("⏳ Keine Sprache gehört")
+        except sr.UnknownValueError:
+            print("⚠️ Sprache unverständlich")
+        except sr.RequestError as e:
+            print("❌ Google Speech Fehler:", e)
+
+        print("-" * 40)
